@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Depth Parallax Background</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: black;
+  touch-action: none;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#upload-ui {
+  position: fixed;
+  z-index: 10;
+  top: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.171);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 300px;
+}
+
+#upload-ui button {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+#upload-ui button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#upload-ui button.active {
+  background: rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 1);
+}
+
+#file-input, #camera-input {
+  display: none;
+}
+
+#camera-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: black;
+  z-index: 25;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+#camera-overlay.active {
+  display: flex;
+}
+
+#camera-preview {
+  max-width: 90vw;
+  max-height: 70vh;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.camera-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.camera-controls button {
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+.camera-controls button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.camera-controls button.capture {
+  background: rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 1);
+}
+
+.camera-controls button.capture:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+#object-fit-toggle {
+  position: fixed;
+  z-index: 10;
+  height: 39px;
+
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s ease;
+}
+
+#object-fit-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#object-fit-toggle.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: none;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 20;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#loading.active {
+  display: flex;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: #fff;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+#gyro-permission {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 10;
+  display: none;
+}
+
+#gyro-permission.show {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  #upload-ui {
+    top: 10px;
+    left: 10px;
+    padding: 12px;
+    max-width: 280px;
+  }
+  
+  #upload-ui button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  #object-fit-toggle {
+    top: 15px;
+    height: 45px;
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="upload-ui">
+  <button id="upload-btn">📁 Upload Image</button>
+  <button id="camera-btn">📷 Take Photo</button>
+  <input type="file" id="file-input" accept="image/*" />
+  <input type="file" id="camera-input" accept="image/*" capture="environment" />
+</div>
+<button id="object-fit-toggle" class="disabled">Contain</button>
+<button id="gyro-permission">Enable Gyroscope</button>
+<div id="camera-overlay">
+  <video id="camera-preview" playsinline></video>
+  <div class="camera-controls">
+    <button id="capture-btn" class="capture">📸 Capture</button>
+    <button id="cancel-camera-btn">✕ Cancel</button>
+  </div>
+</div>
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Processing image...</div>
+</div>
+<canvas id="bg"></canvas>
+
+<script type="module">
+import { pipeline, env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+
+const canvas = document.getElementById("bg");
+const ctx = canvas.getContext("2d");
+
+let layers = [];
+let img;
+let mouseX = 0, mouseY = 0;
+let bgColor = "black";
+let imgScale = 1;
+let imgOffsetX = 0;
+let imgOffsetY = 0;
+let isTouch = false;
+let hasGyro = false;
+let gyroEnabled = false;
+let gyroX = 0, gyroY = 0;
+let objectFit = "cover"; // "cover" or "contain"
+
+// Set initial canvas size
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// Mouse movement
+addEventListener("mousemove", e => {
+  if (!isTouch) {
+    mouseX = e.clientX / innerWidth - 0.5;
+    mouseY = e.clientY / innerHeight - 0.5;
+  }
+});
+
+// Touch movement
+addEventListener("touchmove", e => {
+  if (e.touches.length > 0) {
+    isTouch = true;
+    mouseX = e.touches[0].clientX / innerWidth - 0.5;
+    mouseY = e.touches[0].clientY / innerHeight - 0.5;
+  }
+}, { passive: true });
+
+addEventListener("touchend", () => {
+  isTouch = false;
+  mouseX = 0;
+  mouseY = 0;
+});
+
+// Gyroscope permission request (iOS 13+)
+const gyroBtn = document.getElementById("gyro-permission");
+if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) {
+  // iOS 13+ requires user permission
+  hasGyro = true;
+  gyroBtn.classList.add("show");
+  
+  gyroBtn.addEventListener("click", async () => {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission === "granted") {
+        gyroEnabled = true;
+        gyroBtn.style.display = "none";
+        addEventListener("deviceorientation", handleOrientation);
+      }
+    } catch (error) {
+      console.log("Gyroscope permission denied");
+    }
+  });
+} else if (typeof DeviceOrientationEvent !== "undefined" && /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  // Android and older iOS - only enable if mobile device detected
+  hasGyro = true;
+  addEventListener("deviceorientation", handleOrientation);
+  gyroEnabled = true;
+}
+
+function handleOrientation(event) {
+  // Beta: front to back (X axis), range: -180 to 180
+  // Gamma: left to right (Y axis), range: -90 to 90
+  const beta = event.beta || 0; // X
+  const gamma = event.gamma || 0; // Y
+  
+  // Normalize to larger range for more noticeable parallax
+  gyroX = (gamma / 20) * -0.5; // Increased sensitivity
+  gyroY = (beta / 25) * -0.5;  // Increased sensitivity
+}
+
+const depthEstimator = await pipeline(
+  "depth-estimation",
+  "Xenova/depth-anything-small-hf"
+);
+
+let mediaStream = null;
+
+// Upload UI handlers
+document.getElementById("upload-btn").addEventListener("click", () => {
+  document.getElementById("file-input").click();
+});
+
+document.getElementById("camera-btn").addEventListener("click", async () => {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: "environment" } 
+    });
+    const video = document.getElementById("camera-preview");
+    video.srcObject = mediaStream;
+    video.play();
+    document.getElementById("camera-overlay").classList.add("active");
+  } catch (error) {
+    console.error("Camera access denied:", error);
+    // Fallback to file input for camera
+    document.getElementById("camera-input").click();
+  }
+});
+
+document.getElementById("capture-btn").addEventListener("click", async () => {
+  const video = document.getElementById("camera-preview");
+  const canvas2 = document.createElement("canvas");
+  canvas2.width = video.videoWidth;
+  canvas2.height = video.videoHeight;
+  const ctx2 = canvas2.getContext("2d");
+  ctx2.drawImage(video, 0, 0);
+  
+  // Stop the camera stream
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+  document.getElementById("camera-overlay").classList.remove("active");
+  
+  // Convert canvas to blob and process
+  canvas2.toBlob(async (blob) => {
+    const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+    await processImage(file);
+  }, "image/jpeg", 0.95);
+});
+
+document.getElementById("cancel-camera-btn").addEventListener("click", () => {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+  document.getElementById("camera-overlay").classList.remove("active");
+});
+
+document.getElementById("file-input").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (file) {
+    await processImage(file);
+  }
+});
+
+document.getElementById("camera-input").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (file) {
+    await processImage(file);
+  }
+});
+
+async function processImage(file) {
+  document.getElementById("loading").classList.add("active");
+
+  const url = URL.createObjectURL(file);
+
+  img = new Image();
+  img.src = url;
+  await img.decode();
+
+  const result = await depthEstimator(url);
+  buildLayers(result.depth);
+  document.getElementById("loading").classList.remove("active");
+  document.getElementById("object-fit-toggle").classList.remove("disabled");
+  requestAnimationFrame(render);
+}
+
+// Object fit toggle button
+document.getElementById("object-fit-toggle").addEventListener("click", () => {
+  if (layers.length === 0) return; // Only toggle if image is loaded
+  
+  objectFit = objectFit === "cover" ? "contain" : "cover";
+  const btn = document.getElementById("object-fit-toggle");
+  btn.textContent = objectFit === "cover" ? "Contain" : "Cover";
+  
+  // Recalculate scaling based on new fit mode
+  calculateImageScaling();
+});
+
+function calculateImageScaling() {
+  const imgAspect = img.width / img.height;
+  const canvasAspect = canvas.width / canvas.height;
+  
+  if (objectFit === "cover") {
+    // Cover: Scale to fill entire canvas, may crop
+    if (imgAspect > canvasAspect) {
+      imgScale = canvas.height / img.height;
+    } else {
+      imgScale = canvas.width / img.width;
+    }
+  } else {
+    // Contain: Scale to fit entirely within canvas
+    if (imgAspect > canvasAspect) {
+      imgScale = canvas.width / img.width;
+    } else {
+      imgScale = canvas.height / img.height;
+    }
+  }
+  
+  const scaledWidth = img.width * imgScale;
+  const scaledHeight = img.height * imgScale;
+  imgOffsetX = (canvas.width - scaledWidth) / 2;
+  imgOffsetY = (canvas.height - scaledHeight) / 2;
+}
+
+function averageColor(canvas) {
+  const ctx = canvas.getContext("2d");
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  let r = 0, g = 0, b = 0, count = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a > 10) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      count++;
+    }
+  }
+
+  if (!count) return "black";
+
+  return `rgb(
+    ${Math.round(r / count)},
+    ${Math.round(g / count)},
+    ${Math.round(b / count)}
+  )`;
+}
+
+function buildLayers(depth) {
+  layers = [];
+
+  const { data, width, height } = depth;
+  const layerCount = 6;
+  const overlap = 0.15;
+
+  // Calculate scaling based on object fit mode
+  calculateImageScaling();
+
+  let min = Infinity, max = -Infinity;
+  for (const v of data) {
+    min = Math.min(min, v);
+    max = Math.max(max, v);
+  }
+
+  for (let i = 0; i < layerCount; i++) {
+    const start = (i / layerCount) - overlap;
+    const end   = ((i + 1) / layerCount) + overlap;
+
+    const mask = document.createElement("canvas");
+    mask.width = width;
+    mask.height = height;
+    const mctx = mask.getContext("2d");
+
+    mctx.drawImage(img, 0, 0, width, height);
+    const imgData = mctx.getImageData(0, 0, width, height);
+    const px = imgData.data;
+
+    for (let p = 0; p < data.length; p++) {
+      const norm = (data[p] - min) / (max - min);
+      let alpha = 0;
+
+      if (norm >= start && norm <= end) {
+        const t = Math.min(
+          (norm - start) / overlap,
+          (end - norm) / overlap,
+          1
+        );
+        alpha = Math.max(0, Math.min(1, t));
+      }
+
+      px[p * 4 + 3] *= alpha;
+    }
+
+    mctx.putImageData(imgData, 0, 0);
+
+    mctx.globalCompositeOperation = "destination-in";
+    mctx.filter = "blur(2px)";
+    mctx.drawImage(mask, 0, 0);
+    mctx.filter = "none";
+    mctx.globalCompositeOperation = "source-over";
+
+    layers.push({
+      canvas: mask,
+      depth: i / layerCount
+    });
+  }
+
+  // use rear-most layer to derive background color
+  const rearLayer = layers[layers.length - 1];
+  bgColor = averageColor(rearLayer.canvas);
+}
+
+function render() {
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const strength = window.innerWidth < 768 ? 80 : 60;
+  const scale = 1.05;
+  const baseScaledWidth = img.width * imgScale;
+  const baseScaledHeight = img.height * imgScale;
+  const scaledWidth = baseScaledWidth * scale;
+  const scaledHeight = baseScaledHeight * scale;
+
+  // Use gyro data if available and enabled, otherwise use mouse/touch
+  const parallaxX = gyroEnabled ? gyroX : mouseX;
+  const parallaxY = gyroEnabled ? gyroY : mouseY;
+
+  for (const layer of layers) {
+    const dx = parallaxX * strength * (1 - layer.depth);
+    const dy = parallaxY * strength * (1 - layer.depth);
+
+    ctx.drawImage(
+      layer.canvas,
+      imgOffsetX + dx - (scaledWidth - baseScaledWidth) / 2,
+      imgOffsetY + dy - (scaledHeight - baseScaledHeight) / 2,
+      scaledWidth,
+      scaledHeight
+    );
+  }
+
+  requestAnimationFrame(render);
+}
+</script>
+
+</body>
+</html>
