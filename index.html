@@ -510,34 +510,62 @@ function buildLayers(depth) {
     max = Math.max(max, v);
   }
 
-  for (let i = 0; i < layerCount; i++) {
-    const start = (i / layerCount) - overlap;
-    const end   = ((i + 1) / layerCount) + overlap;
+ for (let i = 0; i < layerCount; i++) {
 
-    const mask = document.createElement("canvas");
-    mask.width = width;
-    mask.height = height;
-    const mctx = mask.getContext("2d");
+  const mask = document.createElement("canvas");
+  mask.width = width;
+  mask.height = height;
+  const mctx = mask.getContext("2d");
 
+  // 🚀 BACKMOST LAYER = FULL IMAGE (NO MASK)
+  if (i === layerCount - 1) {
     mctx.drawImage(img, 0, 0, width, height);
-    const imgData = mctx.getImageData(0, 0, width, height);
-    const px = imgData.data;
 
-    for (let p = 0; p < data.length; p++) {
-      const norm = (data[p] - min) / (max - min);
-      let alpha = 0;
+    layers.push({
+      canvas: mask,
+      depth: i / layerCount
+    });
 
-      if (norm >= start && norm <= end) {
-        const t = Math.min(
-          (norm - start) / overlap,
-          (end - norm) / overlap,
-          1
-        );
-        alpha = Math.max(0, Math.min(1, t));
-      }
+    continue; // skip masking
+  }
 
-      px[p * 4 + 3] *= alpha;
+  // --- NORMAL MASKING FOR OTHER LAYERS ---
+  const start = (i / layerCount) - overlap;
+  const end   = ((i + 1) / layerCount) + overlap;
+
+  mctx.drawImage(img, 0, 0, width, height);
+  const imgData = mctx.getImageData(0, 0, width, height);
+  const px = imgData.data;
+
+  for (let p = 0; p < data.length; p++) {
+    const norm = (data[p] - min) / (max - min);
+    let alpha = 0;
+
+    if (norm >= start && norm <= end) {
+      const t = Math.min(
+        (norm - start) / overlap,
+        (end - norm) / overlap,
+        1
+      );
+      alpha = Math.max(0, Math.min(1, t));
     }
+
+    px[p * 4 + 3] *= alpha;
+  }
+
+  mctx.putImageData(imgData, 0, 0);
+
+  mctx.globalCompositeOperation = "destination-in";
+  mctx.filter = "blur(2px)";
+  mctx.drawImage(mask, 0, 0);
+  mctx.filter = "none";
+  mctx.globalCompositeOperation = "source-over";
+
+  layers.push({
+    canvas: mask,
+    depth: i / layerCount
+  });
+}
 
     mctx.putImageData(imgData, 0, 0);
 
