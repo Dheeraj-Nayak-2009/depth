@@ -567,19 +567,7 @@ function buildLayers(depth) {
   });
 }
 
-    mctx.putImageData(imgData, 0, 0);
 
-    mctx.globalCompositeOperation = "destination-in";
-    mctx.filter = "blur(2px)";
-    mctx.drawImage(mask, 0, 0);
-    mctx.filter = "none";
-    mctx.globalCompositeOperation = "source-over";
-
-    layers.push({
-      canvas: mask,
-      depth: i / layerCount
-    });
-  }
 
   // use rear-most layer to derive background color
   const rearLayer = layers[layers.length - 1];
