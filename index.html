@@ -694,7 +694,7 @@ function setupParallax(canvas) {
 
   for (let i = 0; i < LAYER_COUNT; i++) {
     const img = new Image();
-    img.src = `${folder}/layer_${i}.png`;
+    img.src = folder + "/layer_" + i + ".png";
 
     promises.push(new Promise(res => {
       img.onload = () => {
